@@ -1,10 +1,11 @@
+
 name: Build AHMED STUDY OS APK
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'AHMED_STUDY_OS_Android_Project.zip'
+      - '**.zip'
       - '.github/workflows/android.yml'
 
 jobs:
@@ -15,10 +16,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract project
+      - name: Find project ZIP
         run: |
-          unzip AHMED_STUDY_OS_Android_Project.zip -d extracted
-          cp -R extracted/AHMED_STUDY_OS/. .
+          ZIP_FILE=$(find . -type f -iname '*.zip' -print -quit)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP file found"
+            find . -type f
+            exit 1
+          fi
+          echo "Found: $ZIP_FILE"
+          mkdir extracted
+          unzip -o "$ZIP_FILE" -d extracted
+
+      - name: Locate Android project
+        run: |
+          SETTINGS=$(find extracted -name settings.gradle.kts -print -quit)
+          if [ -z "$SETTINGS" ]; then
+            echo "Android project not found"
+            find extracted -maxdepth 4 -type f
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -26,16 +44,23 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Build APK
-        run: gradle assembleDebug
+        run: gradle -p "$PROJECT_DIR" assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AHMED-STUDY-OS-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: extracted/**/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
