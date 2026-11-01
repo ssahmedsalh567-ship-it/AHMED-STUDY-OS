@@ -13,55 +13,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find project ZIP
+      - name: Find and extract project
+        shell: bash
         run: |
-          ZIP_FILE=$(find . -type f -iname '*.zip' -print -quit)
+          ZIP_FILE=$(find . -maxdepth 2 -type f -iname '*.zip' -print -quit)
           if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found"
-            find . -type f
+            echo "ERROR: Project ZIP not found"
             exit 1
           fi
-          echo "Found: $ZIP_FILE"
           mkdir extracted
           unzip -o "$ZIP_FILE" -d extracted
-
-      - name: Locate Android project
-        run: |
           SETTINGS=$(find extracted -name settings.gradle.kts -print -quit)
           if [ -z "$SETTINGS" ]; then
-            echo "Android project not found"
-            find extracted -maxdepth 4 -type f
+            echo "ERROR: Android project not found in ZIP"
             exit 1
           fi
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
 
-      - name: Setup Java
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+          accept-android-sdk-licenses: 'true'
 
-      -      - name: Accept Android licenses
-        run: |
-          mkdir -p "$ANDROID_HOME/licenses"
-          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > "$ANDROID_HOME/licenses/android-sdk-license"
-          echo "84831b9409646a5e7f3a6f6b3e9b7b5a4f4f5f5f" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
-          yes | sdkmanager --licenses
-
-      - name: Install SDK
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Setup Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build APK
+      - name: Build debug APK
         run: gradle -p "$PROJECT_DIR" assembleDebug --stacktrace
 
       - name: Upload APK
