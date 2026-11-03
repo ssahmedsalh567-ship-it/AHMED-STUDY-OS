@@ -6,8 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,17 +18,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
-private val Navy = Color(0xFF101B35)
-private val Blue = Color(0xFF3478F6)
+private val Navy = Color(0xFF101A35)
+private val CardBlue = Color(0xFF1B2B50)
+private val Blue = Color(0xFF477BFF)
 private val Gold = Color(0xFFFFC857)
-private val Background = Color(0xFFF2F5FC)
+private val Turquoise = Color(0xFF35D6C5)
+private val Purple = Color(0xFF9B83FF)
+private val White = Color(0xFFF5F7FF)
+private val Muted = Color(0xFF9EABC8)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            StudyOS()
+            StudyOSApp()
         }
     }
 }
@@ -34,83 +41,66 @@ class MainActivity : ComponentActivity() {
 data class StudyTask(
     val title: String,
     val subject: String,
-    val minutes: Int,
-    val done: Boolean = false
+    val duration: String,
+    val color: Color,
+    var done: Boolean = false
 )
 
 @Composable
-fun StudyOS() {
+fun StudyOSApp() {
     var page by remember { mutableStateOf(0) }
-    var tasks by remember {
-        mutableStateOf(
-            listOf(
-                StudyTask("مراجعة قوانين الفيزياء", "فيزياء", 45),
-                StudyTask("حل تدريبات الرياضيات", "رياضيات", 60),
-                StudyTask("مذاكرة كلمات الإنجليزي", "إنجليزي", 30),
-                StudyTask("مراجعة النحو", "عربي", 45)
-            )
-        )
-    }
-
-    val completed = tasks.count { it.done }
-    val points = completed * 10
 
     MaterialTheme(
-        colorScheme = lightColorScheme(
+        colorScheme = darkColorScheme(
             primary = Blue,
-            background = Background
+            secondary = Gold,
+            background = Navy,
+            surface = CardBlue
         )
     ) {
         Scaffold(
-            containerColor = Background,
+            containerColor = Navy,
             bottomBar = {
-                NavigationBar(containerColor = Navy) {
-                    val labels = listOf("الرئيسية", "المهام", "التركيز", "العبادات")
-                    labels.forEachIndexed { index, label ->
+                NavigationBar(
+                    containerColor = Color(0xFF15213F)
+                ) {
+                    val items = listOf(
+                        Triple("الرئيسية", Icons.Default.Home, 0),
+                        Triple("المهام", Icons.Default.CheckCircle, 1),
+                        Triple("التركيز", Icons.Default.Timer, 2),
+                        Triple("العبادة", Icons.Default.Mosque, 3)
+                    )
+
+                    items.forEach { item ->
                         NavigationBarItem(
-                            selected = page == index,
-                            onClick = { page = index },
+                            selected = page == item.third,
+                            onClick = { page = item.third },
                             icon = {
-                                Text(
-                                    listOf("⌂", "✓", "◷", "☾")[index],
-                                    color = Color.White,
-                                    fontSize = 20.sp
-                                )
+                                Icon(item.second, contentDescription = item.first)
                             },
-                            label = {
-                                Text(label, color = Color.White, fontSize = 10.sp)
-                            },
+                            label = { Text(item.first) },
                             colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = Blue
+                                selectedIconColor = Gold,
+                                selectedTextColor = Gold,
+                                unselectedIconColor = Muted,
+                                unselectedTextColor = Muted,
+                                indicatorColor = CardBlue
                             )
                         )
                     }
                 }
             }
         ) { padding ->
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
             ) {
-                Text(
-                    "AHMED STUDY OS",
-                    color = Blue,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(8.dp))
                 when (page) {
-                    0 -> Dashboard(completed, tasks.size, points)
-                    1 -> TasksPage(tasks) { index ->
-                        tasks = tasks.mapIndexed { i, task ->
-                            if (i == index) task.copy(done = !task.done)
-                            else task
-                        }
-                    }
-                    2 -> FocusPage()
-                    3 -> WorshipPage()
+                    0 -> DashboardScreen { page = 1 }
+                    1 -> TasksScreen()
+                    2 -> FocusScreen()
+                    3 -> WorshipScreen()
                 }
             }
         }
@@ -118,103 +108,194 @@ fun StudyOS() {
 }
 
 @Composable
-fun Dashboard(completed: Int, total: Int, points: Int) {
-    Text(
-        "أهلاً بك في مساحة إنجازك",
-        fontSize = 23.sp,
-        fontWeight = FontWeight.Bold,
-        color = Navy
-    )
-    Text("كل خطوة صغيرة تقرّبك من هدفك", color = Color.Gray)
-    Spacer(Modifier.height(20.dp))
-
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        StatCard("المكتمل", "$completed", Modifier.weight(1f))
-        StatCard("المتبقي", "${total - completed}", Modifier.weight(1f))
-        StatCard("النقاط", "$points", Modifier.weight(1f))
-    }
-
-    Spacer(Modifier.height(20.dp))
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Navy),
-        shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.fillMaxWidth()
+fun DashboardScreen(openTasks: () -> Unit) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 18.dp),
+        contentPadding = PaddingValues(vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        Column(Modifier.padding(20.dp)) {
-            Text("هدفك اليومي", color = Color.White)
-            Spacer(Modifier.height(10.dp))
-            Text("4 ساعات دراسة", color = Gold, fontSize = 26.sp,
-                fontWeight = FontWeight.Bold)
-            Text("ابدأ بمهمة واحدة، واستمر في التقدم.",
-                color = Color.White)
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("AHMED STUDY OS", color = Gold, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text("أهلاً بك 👋", color = White, fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text("ابدأ يومك بإنجاز جديد", color = Muted)
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = CardBlue,
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.School, null, tint = Gold,
+                            modifier = Modifier.size(28.dp))
+                    }
+                }
+            }
         }
-    }
 
-    Spacer(Modifier.height(20.dp))
-    Text("تقدم المهام", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-    Spacer(Modifier.height(8.dp))
-    LinearProgressIndicator(
-        progress = { if (total == 0) 0f else completed.toFloat() / total },
-        modifier = Modifier.fillMaxWidth().height(10.dp),
-        color = Blue
-    )
-    Text("$completed من $total مهام مكتملة",
-        color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
-    Spacer(Modifier.height(18.dp))
-    Text("ملاحظة: سجل المهام هنا تجريبي مبدئي، وسيتم ربطه بالتخزين والتقارير لاحقًا.",
-        color = Color.Gray, fontSize = 12.sp)
-}
-
-@Composable
-fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(value, color = Blue, fontSize = 23.sp,
-                fontWeight = FontWeight.Bold)
-            Text(title, color = Color.Gray, fontSize = 11.sp)
+        item {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = CardBlue,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(20.dp)) {
+                    Text("لوحة المعلومات", color = White, fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(18.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatCard("المهام", "5", Blue)
+                        StatCard("الإنجاز", "0%", Turquoise)
+                        StatCard("النقاط", "0", Gold)
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Text("هدفك اليومي: 4 ساعات", color = Muted)
+                    Spacer(Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { 0f },
+                        modifier = Modifier.fillMaxWidth().height(9.dp),
+                        color = Turquoise,
+                        trackColor = Navy
+                    )
+                }
+            }
         }
-    }
-}
 
-@Composable
-fun TasksPage(tasks: List<StudyTask>, onToggle: (Int) -> Unit) {
-    Text("لوحة المعلومات والمهام", fontSize = 22.sp,
-        fontWeight = FontWeight.Bold, color = Navy)
-    Text("تابع ما أنجزته وما تبقى عليك.", color = Color.Gray)
-    Spacer(Modifier.height(12.dp))
+        item {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("مهام اليوم", color = White, fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold)
+                TextButton(onClick = openTasks) {
+                    Text("عرض الكل", color = Gold)
+                }
+            }
+            TaskPreview("فيزياء", "مراجعة التيار الكهربي", Blue)
+            TaskPreview("كيمياء", "مذاكرة الدرس الجديد", Turquoise)
+            TaskPreview("إنجليزي", "حل تدريبات الوحدة", Purple)
+        }
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(tasks.size) { index ->
-            val task = tasks[index]
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(16.dp)
+        item {
+            Surface(
+                color = Color(0xFF26365D),
+                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    Modifier.padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.EmojiEvents, null, tint = Gold,
+                        modifier = Modifier.size(38.dp))
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("كل خطوة بتفرق!", color = Gold,
+                            fontWeight = FontWeight.Bold)
+                        Text("استمر في التقدم وحقق هدفك اليوم.",
+                            color = White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StatCard(title: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, color = color, fontSize = 25.sp,
+            fontWeight = FontWeight.Bold)
+        Text(title, color = Muted, fontSize = 12.sp)
+    }
+}
+
+@Composable
+fun TaskPreview(subject: String, title: String, color: Color) {
+    Surface(
+        color = CardBlue,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)
+    ) {
+        Row(
+            Modifier.padding(15.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.size(9.dp).background(color, CircleShape)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(subject, color = color, fontSize = 12.sp)
+                Text(title, color = White, fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Default.ChevronLeft, null, tint = Muted)
+        }
+    }
+}
+
+@Composable
+fun TasksScreen() {
+    val tasks = remember {
+        mutableStateListOf(
+            StudyTask("مراجعة التيار الكهربي", "فيزياء", "60 دقيقة", Blue),
+            StudyTask("حل مسائل الدرس", "فيزياء", "45 دقيقة", Turquoise),
+            StudyTask("مذاكرة الوحدة", "إنجليزي", "60 دقيقة", Purple),
+            StudyTask("مراجعة النحو", "عربي", "45 دقيقة", Gold),
+            StudyTask("حل تدريبات", "كيمياء", "50 دقيقة", Blue)
+        )
+    }
+
+    Column(
+        Modifier.fillMaxSize().padding(20.dp)
+    ) {
+        Text("مهام اليوم", color = White, fontSize = 26.sp,
+            fontWeight = FontWeight.Bold)
+        Text("أنجز مهامك خطوة بخطوة", color = Muted)
+        Spacer(Modifier.height(20.dp))
+
+        tasks.forEachIndexed { index, task ->
+            Surface(
+                color = CardBlue,
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            ) {
+                Row(
+                    Modifier.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
                         checked = task.done,
-                        onCheckedChange = { onToggle(index) }
+                        onCheckedChange = {
+                            tasks[index] = task.copy(done = it)
+                        },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Turquoise
+                        )
                     )
                     Column(Modifier.weight(1f)) {
-                        Text(task.title, fontWeight = FontWeight.Bold,
-                            color = Navy)
-                        Text("${task.subject} • ${task.minutes} دقيقة",
-                            color = Color.Gray, fontSize = 12.sp)
+                        Text(task.title, color = White,
+                            fontWeight = FontWeight.Bold)
+                        Text("${task.subject} • ${task.duration}",
+                            color = Muted, fontSize = 12.sp)
                     }
-                    Text(
-                        if (task.done) "مكتملة" else "متبقية",
-                        color = if (task.done) Color(0xFF16865A) else Blue,
-                        fontSize = 12.sp
+                    Box(
+                        Modifier.size(9.dp).background(task.color, CircleShape)
                     )
                 }
             }
@@ -223,88 +304,130 @@ fun TasksPage(tasks: List<StudyTask>, onToggle: (Int) -> Unit) {
 }
 
 @Composable
-fun FocusPage() {
-    var minutes by remember { mutableIntStateOf(25) }
+fun FocusScreen() {
+    var seconds by remember { mutableIntStateOf(25 * 60) }
     var running by remember { mutableStateOf(false) }
 
+    LaunchedEffect(running) {
+        while (running && seconds > 0) {
+            delay(1000)
+            seconds--
+        }
+        if (seconds == 0) running = false
+    }
+
+    val minutesText = (seconds / 60).toString().padStart(2, '0')
+    val secondsText = (seconds % 60).toString().padStart(2, '0')
+
     Column(
-        modifier = Modifier.fillMaxSize(),
+        Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("مساحة التركيز", fontSize = 24.sp,
-            fontWeight = FontWeight.Bold, color = Navy)
-        Spacer(Modifier.height(25.dp))
+        Text("غرفة التركيز", color = White, fontSize = 27.sp,
+            fontWeight = FontWeight.Bold)
+        Text("وقتك الآن للاستثمار في نفسك", color = Muted)
+        Spacer(Modifier.height(38.dp))
+
         Box(
-            modifier = Modifier
-                .size(220.dp)
-                .background(Navy, RoundedCornerShape(110.dp)),
+            Modifier.size(245.dp),
             contentAlignment = Alignment.Center
         ) {
+            CircularProgressIndicator(
+                progress = { seconds / (25f * 60f) },
+                modifier = Modifier.fillMaxSize(),
+                color = Turquoise,
+                trackColor = CardBlue,
+                strokeWidth = 13.dp
+            )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("◉", color = Gold, fontSize = 38.sp)
-                Text("${minutes}:00", color = Color.White,
-                    fontSize = 35.sp, fontWeight = FontWeight.Bold)
-                Text("وقت التركيز", color = Color.White)
+                Icon(Icons.Default.Timer, null, tint = Gold,
+                    modifier = Modifier.size(35.dp))
+                Text("$minutesText:$secondsText", color = White,
+                    fontSize = 43.sp, fontWeight = FontWeight.Bold)
+                Text("وقت التركيز", color = Muted)
             }
         }
-        Spacer(Modifier.height(20.dp))
+
+        Spacer(Modifier.height(35.dp))
+
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { running = !running }) {
-                Text(if (running) "إيقاف" else "ابدأ")
+            Button(
+                onClick = { running = !running },
+                colors = ButtonDefaults.buttonColors(containerColor = Blue)
+            ) {
+                Icon(
+                    if (running) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    null
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(if (running) "إيقاف مؤقت" else "ابدأ التركيز")
             }
-            OutlinedButton(onClick = {
-                running = false
-                minutes = 25
-            }) {
-                Text("إعادة ضبط")
+
+            OutlinedButton(
+                onClick = {
+                    running = false
+                    seconds = 25 * 60
+                }
+            ) {
+                Text("إعادة")
             }
         }
-        Text("المؤقت هنا واجهة أولية، وسيتم تطوير العد التنازلي لاحقًا.",
-            color = Color.Gray, fontSize = 12.sp)
     }
 }
 
 @Composable
-fun WorshipPage() {
+fun WorshipScreen() {
     val prayers = listOf("الفجر", "الظهر", "العصر", "المغرب", "العشاء")
-    var checked by remember { mutableStateOf(setOf<String>()) }
-    var quran by remember { mutableStateOf(false) }
+    val checked = remember { mutableStateListOf(false, false, false, false, false) }
+    var quranDone by remember { mutableStateOf(false) }
 
-    Text("متابعة العبادات", fontSize = 23.sp,
-        fontWeight = FontWeight.Bold, color = Navy)
-    Text("متابعة يومية مستقلة عن نقاط الدراسة.",
-        color = Color.Gray)
-    Spacer(Modifier.height(15.dp))
+    Column(
+        Modifier.fillMaxSize().padding(20.dp)
+    ) {
+        Text("متابعة العبادة", color = White, fontSize = 26.sp,
+            fontWeight = FontWeight.Bold)
+        Text("متابعة شخصية بدون نقاط أو خصومات", color = Muted)
+        Spacer(Modifier.height(20.dp))
 
-    prayers.forEach { prayer ->
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically
+        prayers.forEachIndexed { index, prayer ->
+            Surface(
+                color = CardBlue,
+                shape = RoundedCornerShape(15.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)
             ) {
-                Checkbox(
-                    checked = prayer in checked,
-                    onCheckedChange = {
-                        checked = if (it) checked + prayer else checked - prayer
-                    }
-                )
-                Text(prayer, color = Navy, fontWeight = FontWeight.Medium)
+                Row(
+                    Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(prayer, color = White, modifier = Modifier.weight(1f))
+                    Checkbox(
+                        checked = checked[index],
+                        onCheckedChange = { checked[index] = it },
+                        colors = CheckboxDefaults.colors(checkedColor = Turquoise)
+                    )
+                }
             }
         }
-    }
 
-    Spacer(Modifier.height(12.dp))
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Spacer(Modifier.height(15.dp))
+
+        Surface(
+            color = Color(0xFF26365D),
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Checkbox(quran, onCheckedChange = { quran = it })
-            Text("ورد القرآن اليومي", color = Navy)
+            Row(
+                Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("ورد القرآن اليومي", color = White,
+                    modifier = Modifier.weight(1f))
+                Checkbox(
+                    checked = quranDone,
+                    onCheckedChange = { quranDone = it }
+                )
+            }
         }
     }
 }
