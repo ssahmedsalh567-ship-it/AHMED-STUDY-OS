@@ -1,40 +1,8 @@
-name: Build AHMED STUDY OS APK
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Build APK
-        run: gradle assembleDebug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: AHMED-STUDY-OS-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
 
 android {
     namespace = "com.ahmed.studyos"
